@@ -1,0 +1,65 @@
+name: Update earnings season tracker
+
+# FactSet publishes Earnings Insight on Fridays (US time), occasionally Thursday.
+# Primary run: Friday 22:23 UTC = Saturday 09:23 Melbourne (AEDT) / 08:23 (AEST).
+# Two retries catch late or holiday-shifted editions; runs with nothing new exit cleanly.
+on:
+  schedule:
+    - cron: "23 22 * * 5"
+    - cron: "23 13 * * 6"
+    - cron: "23 13 * * 1"
+  workflow_dispatch:
+    inputs:
+      edition:
+        description: "Optional edition code, e.g. 103026 or 103026A (blank = latest)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: earnings-tracker-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pdftotext
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
+
+      - name: Fetch and parse the latest Earnings Insight
+        env:
+          EDITION: ${{ github.event.inputs.edition }}
+        run: |
+          if [ -n "$EDITION" ]; then
+            python scripts/update_from_factset.py --data data/tracker_data.json --edition "$EDITION"
+          else
+            python scripts/update_from_factset.py --data data/tracker_data.json
+          fi
+
+      - name: Rebuild dashboard
+        run: python rebuild.py docs
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add data docs
+          if git diff --cached --quiet; then
+            echo "No new edition; nothing to commit."
+            exit 0
+          fi
+          EDITION_DATE=$(python -c "import json;print(json.load(open('data/tracker_data.json'))['meta']['last_edition_date'])")
+          git commit -m "Earnings Insight ${EDITION_DATE}"
+          git push
