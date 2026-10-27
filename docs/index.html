@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<title>S&amp;P 500 Earnings Season Tracker</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: masthead + three headline gauges, a thin context strip, the long-run beat-rate chart,
+   then season path / findings side by side, history ledger and source notes. Acheron house style. */
+:root{
+  --paper:#F7F1E6; --card:#FDFAF3; --ink:#221C14; --ink-2:#5E5446; --ink-3:#8C8170;
+  --rule:#E3D8C6; --track:#ECE3D3;
+  --orange:#D2622A; --teal:#0E756C; --ochre:#A67A22; --plum:#7A4A66; --slate:#4E6577;
+  --f-display:"Space Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --f-body:"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#16130F; --card:#1F1B15; --ink:#EEE6D8; --ink-2:#B3A895; --ink-3:#857B6B;
+    --rule:#352E25; --track:#2B251E;
+    --orange:#E57C47; --teal:#3BAA98; --ochre:#CFA24A; --plum:#B18AA6; --slate:#91A5BA;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#16130F; --card:#1F1B15; --ink:#EEE6D8; --ink-2:#B3A895; --ink-3:#857B6B;
+  --rule:#352E25; --track:#2B251E;
+  --orange:#E57C47; --teal:#3BAA98; --ochre:#CFA24A; --plum:#B18AA6; --slate:#91A5BA;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--paper); color:var(--ink); font-family:var(--f-body); font-size:15px; line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px));}
+.wrap{max-width:1180px; margin:0 auto; padding-block:28px 48px; display:flex; flex-direction:column; gap:22px}
+a{color:var(--teal)}
+a:focus-visible, button:focus-visible{outline:2px solid var(--orange); outline-offset:2px}
+.mono{font-family:var(--f-mono); font-variant-numeric:tabular-nums}
+.eyebrow{font-family:var(--f-mono); font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3)}
+
+/* masthead */
+.mast{display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:12px 24px;
+  border-bottom:2px solid var(--ink); padding-bottom:14px}
+.mast h1{font-family:var(--f-display); font-weight:700; font-size:clamp(26px, 4vw, 38px); line-height:1.05;
+  letter-spacing:-.02em; margin:4px 0 0; text-wrap:balance}
+.mast h1 span{color:var(--orange)}
+.mast .meta{font-family:var(--f-mono); font-size:12px; color:var(--ink-2); text-align:right; line-height:1.6}
+.mast .meta b{color:var(--ink); font-weight:600}
+
+/* headline gauges */
+.kpis{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:16px}
+.kpi{background:var(--card); border:1px solid var(--rule); border-radius:6px; padding:18px 18px 16px;
+  display:flex; flex-direction:column; gap:10px; min-width:0}
+.kpi .lab{font-family:var(--f-display); font-weight:600; font-size:14px; letter-spacing:.01em}
+.kpi .big{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap}
+.kpi .big .v{font-family:var(--f-mono); font-weight:600; font-size:46px; line-height:1; letter-spacing:-.02em; font-variant-numeric:tabular-nums}
+.kpi .big .sub{font-family:var(--f-mono); font-size:13px; color:var(--ink-2)}
+.pill{display:inline-flex; align-items:center; gap:5px; font-family:var(--f-mono); font-size:11.5px; font-weight:600;
+  padding:3px 8px; border-radius:999px; white-space:nowrap}
+.pill.up{color:var(--teal); background:color-mix(in srgb, var(--teal) 14%, transparent)}
+.pill.dn{color:var(--orange); background:color-mix(in srgb, var(--orange) 14%, transparent)}
+.pill.nt{color:var(--slate); background:color-mix(in srgb, var(--slate) 14%, transparent)}
+.kpi .ctx{font-size:13px; color:var(--ink-2); line-height:1.45}
+.kpi .ctx b{color:var(--ink); font-weight:600}
+
+/* gauge bars */
+.gauge{position:relative; height:12px; background:var(--track); border-radius:2px}
+.gauge .fill{position:absolute; left:0; top:0; bottom:0; border-radius:2px}
+.gauge .ghost{position:absolute; top:0; bottom:0; border-radius:0 2px 2px 0;
+  background:repeating-linear-gradient(135deg, color-mix(in srgb, var(--ink-3) 45%, transparent) 0 3px, transparent 3px 7px)}
+.gauge .mk{position:absolute; top:-5px; bottom:-5px; width:2px; background:var(--ink)}
+.scale{position:relative; height:16px; font-family:var(--f-mono); font-size:10.5px; color:var(--ink-3)}
+.scale span{position:absolute; transform:translateX(-50%); white-space:nowrap}
+.scale span:first-child{transform:none}
+.scale span:last-child{transform:translateX(-100%)}
+.split{display:flex; height:10px; border-radius:2px; overflow:hidden; gap:2px}
+.split div{height:100%}
+.keyrow{display:flex; flex-wrap:wrap; gap:4px 14px; font-family:var(--f-mono); font-size:11.5px; color:var(--ink-2)}
+.keyrow i{display:inline-block; width:9px; height:9px; border-radius:1px; margin-right:5px; vertical-align:-1px}
+
+/* context strip */
+.strip{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); border-top:1px solid var(--rule); border-bottom:1px solid var(--rule)}
+.strip > div{padding:12px 14px; display:flex; flex-direction:column; gap:2px; min-width:0}
+.strip > div + div{border-left:1px solid var(--rule)}
+.strip .k{font-family:var(--f-mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3)}
+.strip .v{font-family:var(--f-mono); font-size:22px; font-weight:600; font-variant-numeric:tabular-nums}
+.strip .c{font-size:12.5px; color:var(--ink-2)}
+.strip .v.dn{color:var(--orange)} .strip .v.up{color:var(--teal)}
+
+/* panels */
+.panel{background:var(--card); border:1px solid var(--rule); border-radius:6px; padding:20px; min-width:0}
+.panel h2{font-family:var(--f-display); font-weight:600; font-size:19px; letter-spacing:-.01em; margin:0; text-wrap:balance}
+.panel .dek{font-size:13.5px; color:var(--ink-2); margin:4px 0 0; max-width:72ch}
+.phead{display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-end; gap:12px; margin-bottom:14px}
+.legend{display:flex; flex-wrap:wrap; gap:6px 16px; font-family:var(--f-mono); font-size:11.5px; color:var(--ink-2); align-items:center}
+.legend .sw{display:inline-block; width:18px; height:0; border-top:2px solid; vertical-align:middle; margin-right:6px}
+.legend .dot{display:inline-block; width:9px; height:9px; border-radius:50%; vertical-align:-1px; margin-right:6px}
+.seg{display:inline-flex; border:1px solid var(--rule); border-radius:4px; overflow:hidden}
+.seg button{font:500 12px var(--f-mono); color:var(--ink-2); background:transparent; border:0; padding:6px 11px; cursor:pointer}
+.seg button + button{border-left:1px solid var(--rule)}
+.seg button[aria-pressed="true"]{background:var(--ink); color:var(--paper)}
+.chartbox{position:relative; height:360px}
+.chartnote{margin-top:10px; font-size:12.5px; color:var(--ink-3)}
+
+.two{display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:16px}
+.compact th, .compact td{padding:7px 7px}
+.tscroll{overflow-x:auto; -webkit-overflow-scrolling:touch}
+table{border-collapse:collapse; width:100%; font-size:13px}
+th{font-family:var(--f-mono); font-weight:500; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3);
+  text-align:right; padding:8px 10px; border-bottom:1px solid var(--ink); white-space:nowrap}
+td{padding:8px 10px; border-bottom:1px solid var(--rule); text-align:right; font-family:var(--f-mono); font-variant-numeric:tabular-nums; white-space:nowrap}
+th:first-child, td:first-child{text-align:left}
+td.txt, th.txt{text-align:left; font-family:var(--f-body); white-space:normal; min-width:240px}
+td .muted{color:var(--ink-3)}
+tr.now td{background:color-mix(in srgb, var(--ochre) 12%, transparent)}
+.pos{color:var(--teal)} .neg{color:var(--orange)} .flat{color:var(--slate)}
+
+.findings{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:14px}
+.findings li{display:grid; grid-template-columns:4px minmax(0,1fr); gap:12px}
+.findings li::before{content:""; border-radius:2px; background:var(--slate)}
+.findings li.g::before{background:var(--teal)} .findings li.w::before{background:var(--orange)} .findings li.n::before{background:var(--ochre)}
+.findings h3{font-family:var(--f-display); font-weight:600; font-size:14.5px; margin:0 0 2px}
+.findings p{margin:0; font-size:13.5px; color:var(--ink-2); max-width:68ch}
+.findings p b{color:var(--ink); font-weight:600}
+
+.ledger td.q{font-weight:600}
+.tag{font-family:var(--f-mono); font-size:10px; letter-spacing:.05em; text-transform:uppercase; padding:1px 5px; border-radius:3px; margin-left:6px; vertical-align:1px}
+.tag.live{color:var(--ochre); border:1px solid var(--ochre)}
+.tag.interim{color:var(--plum); border:1px solid var(--plum)}
+.tag.br{color:var(--slate); border:1px dashed var(--slate)}
+
+.notes{font-size:12.5px; color:var(--ink-2); display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px 28px}
+.notes h4{font-family:var(--f-display); font-size:13px; margin:0 0 4px; color:var(--ink)}
+.notes p, .notes ul{margin:0}
+.notes ul{padding-left:18px}
+.notes li{margin:2px 0}
+.foot{font-family:var(--f-mono); font-size:11px; color:var(--ink-3); border-top:1px solid var(--rule); padding-top:10px}
+
+@media (max-width: 1080px){ .two{grid-template-columns:minmax(0,1fr)} }
+@media (max-width: 900px){
+  .kpis{grid-template-columns:minmax(0,1fr)}
+  .strip{grid-template-columns:repeat(2, minmax(0,1fr))}
+  .strip > div:nth-child(3){border-left:0}
+  .strip > div:nth-child(n+3){border-top:1px solid var(--rule)}
+  .notes{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width: 520px){
+  .mast .meta{text-align:left}
+  .chartbox{height:300px}
+  .kpi .big .v{font-size:40px}
+  .panel{padding:16px}
+}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important; animation:none!important} }
+</style>
+
+<div class="wrap">
+  <header class="mast">
+    <div>
+      <div class="eyebrow">S&amp;P 500 · Q3 2026 earnings season · in progress</div>
+      <h1>Earnings Season Tracker <span>Q3 2026</span></h1>
+    </div>
+    <div class="meta">Source: <b>FactSet Earnings Insight</b><br>Edition <b><a href="https://advantage.factset.com/hubfs/Website/Resources%20Section/Research%20Desk/Earnings%20Insight/EarningsInsight_102326.pdf">Oct 23, 2026</a></b> · updated 2026-10-27 03:26 UTC</div>
+  </header>
+
+  <section class="kpis" aria-label="Headline metrics">
+    <article class="kpi">
+      <div class="lab">Companies reported</div>
+      <div class="big"><span class="v">24%</span><span class="sub">≈120 of 500</span></div>
+      <div>
+        <div class="gauge" role="img" aria-label="24% reported; about 60% after next week's scheduled reports">
+          <div class="fill" style="width:24%; background:var(--ink)"></div>
+          <div class="ghost" style="left:24%; width:calc(60% - 24%)"></div>
+        </div>
+        <div class="scale" style="margin-top:4px"><span style="left:0">0%</span><span style="left:60%">≈60%</span><span style="left:100%">100%</span></div>
+      </div>
+      <div class="ctx"><b>179</b> companies (10 Dow 30) report this week. If all do, the season is ≈60% complete by the next edition.</div>
+    </article>
+
+    <article class="kpi">
+      <div class="lab">Beating EPS estimates</div>
+      <div class="big"><span class="v">83%</span><span class="pill up">+5 pts vs 5-yr</span></div>
+      <div>
+        <div class="gauge" role="img" aria-label="83% beat, against a 5-year average of 78% and 10-year average of 77%">
+          <div class="fill" style="width:calc((83 - 60) / 30 * 100%); background:var(--teal)"></div>
+          <div class="mk" style="left:calc((78 - 60) / 30 * 100%)" title="5-yr avg 78%"></div>
+          <div class="mk" style="left:calc((77 - 60) / 30 * 100%); background:var(--ink-3)" title="10-yr avg 77%"></div>
+        </div>
+        <div class="scale" style="margin-top:4px"><span style="left:0">60%</span><span style="left:calc((78 - 60) / 30 * 100%)">5y 78</span><span style="left:100%">90%</span></div>
+      </div>
+      <div class="split" aria-hidden="true">
+        <div style="flex:83; background:var(--teal)"></div>
+        <div style="flex:4; background:var(--slate)"></div>
+        <div style="flex:13; background:var(--orange)"></div>
+      </div>
+      <div class="keyrow"><span><i style="background:var(--teal)"></i>Beat 83%</span><span><i style="background:var(--slate)"></i>In line 4%</span><span><i style="background:var(--orange)"></i>Miss 13%</span></div>
+      <div class="ctx">1-yr avg <b>82%</b>, 10-yr avg <b>77%</b>. Averages use all 500 companies; the current figure covers only those reported.</div>
+    </article>
+
+    <article class="kpi">
+      <div class="lab">Positive Q4 2026 EPS guidance</div>
+      <div class="big"><span class="v">59%</span><span class="sub">10 of 17 guiders</span><span class="pill up">5-yr ≈40%</span></div>
+      <div>
+        <div class="split" style="height:12px" role="img" aria-label="10 positive and 7 negative guidance">
+          <div style="flex:10; background:var(--teal)"></div>
+          <div style="flex:7; background:var(--orange)"></div>
+        </div>
+        <div class="scale" style="margin-top:4px"><span style="left:0">10 positive</span><span style="left:40%">5y ≈40%</span><span style="left:100%">7 negative</span></div>
+      </div>
+      <div class="ctx">FY guidance: <b>175 of 268</b> (65%) positive. Before the season, <b>72 of 116</b> (62%) guided Q3 2026 above consensus vs a 40% norm.</div>
+    </article>
+  </section>
+
+  <section class="strip" aria-label="Season context">
+    <div><span class="k">Revenue beats</span><span class="v dn">66%</span><span class="c">5-yr 70% · 10-yr 68%</span></div>
+    <div><span class="k">EPS surprise, aggregate</span><span class="v dn">+2.1%</span><span class="c">5-yr +7.5% · 10-yr +8.0%</span></div>
+    <div><span class="k">EPS growth y/y</span><span class="v">29.5%</span><span class="c">TTM 31.2% · quarter was 29.2% at Sep 30</span></div>
+    <div><span class="k">Blended revenue growth y/y</span><span class="v">12.7%</span><span class="c">Fwd 12M P/E 18.7</span></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-hist">
+    <div class="phead">
+      <div>
+        <h2 id="h-hist">Share of companies beating EPS estimates, by quarter</h2>
+        <p class="dek">Q2'21 to Q3 2026. Each quarter is shown against the 5-year average FactSet quoted during that season. Shading marks the gap.</p>
+      </div>
+      <div class="seg" role="group" aria-label="Highlight">
+        <button type="button" id="hl-all" aria-pressed="true">All quarters</button>
+        <button type="button" id="hl-q4" aria-pressed="false">Q4 seasons</button>
+      </div>
+    </div>
+    <div class="legend" style="margin-bottom:10px">
+      <span><span class="sw" style="border-color:var(--ink)"></span>% beating</span>
+      <span><span class="sw" style="border-color:var(--ink-3); border-top-style:dashed"></span>5-yr average</span>
+      <span><span class="dot" style="background:var(--teal)"></span>Above avg</span>
+      <span><span class="dot" style="background:var(--orange)"></span>Below avg</span>
+      <span><span class="dot" style="border:2px solid var(--ochre); background:transparent; width:10px; height:10px"></span>Season in progress / interim read</span>
+    </div>
+    <div class="chartbox"><canvas id="histChart" aria-label="Line chart of the quarterly share of S&amp;P 500 companies beating EPS estimates against the 5-year average" role="img"></canvas></div>
+    <p class="chartnote">12 of the 21 completed quarters printed above their 5-year average. Range: 68% (Q4'22) to 87% (Q2'21).</p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-growth">
+    <div class="phead">
+      <div>
+        <h2 id="h-growth">Earnings growth, year over year</h2>
+        <p class="dek">Bars: quarterly growth as FactSet reported it late in each season. Line: trailing four quarters (TTM), weighted by year-ago bottom-up EPS.</p>
+      </div>
+      <div class="seg" role="group" aria-label="Range">
+        <button type="button" id="gr-all" aria-pressed="false">Since Q2'21</button>
+        <button type="button" id="gr-22" aria-pressed="true">Since Q1'22</button>
+      </div>
+    </div>
+    <div class="legend" style="margin-bottom:10px">
+      <span><span class="dot" style="border-radius:1px; background:var(--slate)"></span>Quarterly y/y</span>
+      <span><span class="dot" style="border-radius:1px; background:var(--orange)"></span>Quarterly decline</span>
+      <span><span class="sw" style="border-color:var(--ink)"></span>TTM y/y (latest 31.2%)</span>
+      <span><span class="dot" style="border-radius:1px; background:var(--ochre)"></span>Q3 2026 blended, in progress</span>
+    </div>
+    <div class="chartbox"><canvas id="growthChart" role="img" aria-label="Bar chart of quarterly year-over-year S&amp;P 500 earnings growth with a trailing twelve-month growth line"></canvas></div>
+    <p class="chartnote">TTM growth is 31.2% including the blended Q3 2026 figure, up from 27.3% through Q2'26 and the highest since Q1'22. The trough was -2.2% (Q2'23); quarterly earnings fell y/y in Q4'22, Q1'23, Q2'23. One-offs inside the TTM window: Q2'26: Includes GAAP investment gains at Alphabet ($98bn) and Amazon ($53.4bn); 33.8% excluding the two.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-guide">
+    <div class="phead">
+      <div>
+        <h2 id="h-guide">Share of companies issuing positive quarterly EPS guidance</h2>
+        <p class="dek">Guidance for each quarter, counted at quarter end, against FactSet's 5-year average. Q4 2026 is still accumulating (17 companies so far).</p>
+      </div>
+    </div>
+    <div class="legend" style="margin-bottom:10px">
+      <span><span class="sw" style="border-color:var(--ink)"></span>% positive</span>
+      <span><span class="sw" style="border-color:var(--ink-3); border-top-style:dashed"></span>5-yr average</span>
+      <span><span class="dot" style="background:var(--teal)"></span>Above avg</span>
+      <span><span class="dot" style="background:var(--orange)"></span>Below avg</span>
+      <span><span class="dot" style="border:2px solid var(--ochre); background:transparent; width:10px; height:10px"></span>Count still accumulating</span>
+    </div>
+    <div class="chartbox"><canvas id="guideChart" role="img" aria-label="Line chart of the share of S&amp;P 500 companies issuing positive quarterly EPS guidance against the 5-year average"></canvas></div>
+    <p class="chartnote">9 of 21 completed quarters ran above the 5-yr average, the last 6 in a row. Q3'26's 62% was the highest since Q2'21. Across 21 quarters, the pre-season positive share and that quarter's beat rate correlate at r = 0.62.</p>
+  </section>
+
+  <div class="two">
+    <section class="panel" aria-labelledby="h-path">
+      <h2 id="h-path">This season, week by week</h2>
+      <p class="dek">Each row is one weekly edition of Earnings Insight; dates link to the PDF.</p>
+      <div class="tscroll" style="margin-top:12px">
+        <table class="compact">
+          <thead><tr><th>Edition</th><th>Reported</th><th>EPS beat</th><th>Rev beat</th><th>EPS surp.</th><th>Q4'26 guide</th><th>Growth</th></tr></thead>
+          <tbody id="weeks"></tbody>
+        </table>
+      </div>
+      <h2 style="margin-top:22px; font-size:16px">Early reads drift</h2>
+      <p class="dek">Beat rate a few weeks in, against where the quarter finished.</p>
+      <div class="tscroll" style="margin-top:8px">
+        <table>
+          <thead><tr><th>Quarter</th><th>Early read</th><th>At % reported</th><th>Final</th><th>Drift</th></tr></thead>
+          <tbody id="drift"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-find">
+      <h2 id="h-find">What the numbers say</h2>
+      <ul class="findings" style="margin-top:14px">
+        <li class="n"><div><h3>Breadth above average, magnitude below</h3>
+          <p><b>83%</b> of reporters beat, 5 pts above the 5-yr average (78%). In aggregate they beat by <b>+2.1%</b> against a +7.5% norm (+8.0% over 10 years). Sector extremes: Energy +11.0%, Communication Services -19.7%.</p></div></li>
+        <li class="w"><div><h3>The top line is the soft spot</h3>
+          <p>Revenue beats run at <b>66%</b> vs 70% (5-yr) and 68% (10-yr), with a +1.2% aggregate surprise vs +1.8%.</p></div></li>
+        <li class="g"><div><h3>Guidance leans positive, on a small sample</h3>
+          <p>10 of 17 companies guiding Q4 2026 came in above consensus (59% vs ≈40% norm). The pre-season Q3 2026 read: 72 of 116 (62%). Annual guidance is 65% positive.</p></div></li>
+        <li class="g"><div><h3>Growth is re-accelerating</h3>
+          <p>Blended Q3 2026 growth is <b>29.5%</b> and TTM growth <b>31.2%</b>, the highest since Q1'22. Q2'26: Includes GAAP investment gains at Alphabet ($98bn) and Amazon ($53.4bn); 33.8% excluding the two.</p></div></li>
+        <li class="w"><div><h3>Q4 is the seasonal weak spot</h3>
+          <p>Since 2022, Q4 seasons have printed <b>68%, 73%, 75%, 73%</b>, below the 5-yr average in 4 of 4 years and averaging <b>72%</b> against 79% for other quarters.</p></div></li>
+        <li class=""><div><h3>Treat 24% reported as provisional</h3>
+          <p>Recent seasons moved 1 to 4 pts between a quarter-way read and the close (table at left). The current print sits 5 pts over the average, wider than any drift in that sample.</p></div></li>
+      </ul>
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="h-ledger">
+    <h2 id="h-ledger">Quarterly ledger</h2>
+    <p class="dek">Every value in the charts with the FactSet edition it was read from. Guidance percentages link to their own edition.</p>
+    <div class="tscroll" style="margin-top:12px">
+      <table class="ledger">
+        <thead><tr><th>Quarter</th><th>% beat EPS</th><th>5-yr avg</th><th>Gap</th><th>EPS growth y/y</th><th>TTM y/y</th><th>Pos. guidance</th><th>Guide 5-yr</th><th class="txt">Scorecard reading</th></tr></thead>
+        <tbody id="ledger"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="notes" aria-label="Method and sources">
+    <div>
+      <h4>Definitions</h4>
+      <ul>
+        <li><b>Beat</b>: actual EPS above the mean estimate (FactSet). In-line and misses are split out above.</li>
+        <li><b>Positive guidance</b>: a company's EPS guidance (or range midpoint) is above the mean estimate the day before it was issued. FactSet does not publish a "% raising guidance" series; this is its closest measure. Guidance is either positive or negative, so the ≈40% norm is 100% minus FactSet's 60% negative average.</li>
+        <li><b>Reported count</b> (≈120) is derived: 24% of FactSet's 500-company base.</li>
+      </ul>
+    </div>
+    <div>
+      <h4>Data notes</h4>
+      <ul>
+        <li>Every completed quarter is a late-season reading (94% or more of companies reported). FactSet's later citations can differ slightly: Q3'23 beat rate 81% later vs 82% at 98%; Q2'21 growth 91.6% vs 90.9%; Q4'21 growth 32.0% vs 30.7% at 95%.</li>
+        <li><b>TTM growth</b>: FactSet's quarterly y/y rates for the last four quarters, weighted by the year-ago quarters' bottom-up EPS. A plain ratio of summed bottom-up EPS runs within 0.9 pts on average (max 3.5), since FactSet's rates compare the same companies year on year.</li>
+        <li>Guidance counts are pre-season, from the edition nearest quarter end. Q3'22: FactSet gave no 5-yr percentage that quarter, so the average line is bridged.</li>
+        <li>5-yr averages are as quoted in-season by FactSet, not recomputed.</li>
+      </ul>
+    </div>
+    <div>
+      <h4>Sources</h4>
+      <ul>
+        <li><a href="https://advantage.factset.com/hubfs/Website/Resources%20Section/Research%20Desk/Earnings%20Insight/EarningsInsight_102326.pdf">Earnings Insight, Oct 23, 2026</a> (current scorecard, guidance)</li>
+        <li>This season's weekly editions: linked from the week-by-week table.</li>
+        <li>Historical rows: the edition named in each ledger row (linked).</li>
+        <li>Bottom-up EPS (TTM weights): <a href="https://advantage.factset.com/hubfs/Website/Resources%20Section/Research%20Desk/Earnings%20Insight/EarningsInsight_101620.pdf">Oct 16, 2020</a> · <a href="https://advantage.factset.com/hubfs/Website/Resources%20Section/Research%20Desk/Earnings%20Insight/EarningsInsight_040822.pdf">Apr 8, 2022</a> · <a href="https://advantage.factset.com/hubfs/Website/Resources%20Section/Research%20Desk/Earnings%20Insight/EarningsInsight_101323.pdf">Oct 13, 2023</a> · <a href="https://advantage.factset.com/hubfs/Website/Resources%20Section/Research%20Desk/Earnings%20Insight/EarningsInsight_041125A.pdf">Apr 11, 2025</a> · <a href="https://advantage.factset.com/hubfs/Website/Resources%20Section/Research%20Desk/Earnings%20Insight/EarningsInsight_102326.pdf">Oct 23, 2026</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Refresh</h4>
+      <p>A GitHub Action fetches each new Earnings Insight edition, parses it and rebuilds this page (weekly, Saturday morning Melbourne time). Last edition processed: Oct 23, 2026. Rows and figures are as FactSet printed them; nothing is estimated except where noted.</p>
+    </div>
+  </section>
+
+  <div class="foot">Not investment advice. Figures transcribed from FactSet Research Systems' public Earnings Insight reports.</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const DATA = {"history": [{"q": "Q2'21", "beat": 87, "avg5": 75, "growth": 90.9, "read": ">99% reported · Sep 3, 2021", "src": "090321", "flag": "", "ttm": 28.8, "ttm_lvl": 26.1}, {"q": "Q3'21", "beat": 82, "avg5": 76, "growth": 39.6, "read": "95% reported · Nov 19, 2021", "src": "111921A", "flag": "", "ttm": 42.2, "ttm_lvl": 38.7}, {"q": "Q4'21", "beat": 76, "avg5": 76, "growth": 30.7, "read": "95% reported · Feb 25, 2022", "src": "022522", "flag": "", "ttm": 49.9, "ttm_lvl": 47.4}, {"q": "Q1'22", "beat": 77, "avg5": 77, "growth": 9.2, "read": "99% reported · Jun 3, 2022", "src": "060322", "flag": "", "ttm": 37.0, "ttm_lvl": 36.0}, {"q": "Q2'22", "beat": 75, "avg5": 77, "growth": 6.3, "read": ">99% reported · Sep 2, 2022", "src": "090222B", "flag": "", "ttm": 19.8, "ttm_lvl": 19.9}, {"q": "Q3'22", "beat": 70, "avg5": 77, "growth": 2.5, "read": "99% reported · Dec 2, 2022", "src": "120222A", "flag": "", "ttm": 11.2, "ttm_lvl": 12.0}, {"q": "Q4'22", "beat": 68, "avg5": 77, "growth": -4.8, "read": "94% reported · Feb 24, 2023", "src": "022423", "flag": "", "ttm": 3.1, "ttm_lvl": 4.2}, {"q": "Q1'23", "beat": 78, "avg5": 77, "growth": -2.1, "read": "99% reported · Jun 1, 2023", "src": "060123", "flag": "", "ttm": 0.4, "ttm_lvl": 1.4}, {"q": "Q2'23", "beat": 79, "avg5": 77, "growth": -4.1, "read": ">99% reported · Sep 1, 2023", "src": "090123", "flag": "", "ttm": -2.2, "ttm_lvl": -1.4}, {"q": "Q3'23", "beat": 82, "avg5": 77, "growth": 4.8, "read": "98% reported · Dec 1, 2023", "src": "120123", "flag": "", "ttm": -1.6, "ttm_lvl": -0.7}, {"q": "Q4'23", "beat": 73, "avg5": 77, "growth": 4.0, "read": "97% reported · Mar 1, 2024", "src": "030124", "flag": "", "ttm": 0.6, "ttm_lvl": 1.1}, {"q": "Q1'24", "beat": 79, "avg5": 77, "growth": 5.9, "read": ">99% reported · Jun 7, 2024", "src": "060724", "flag": "", "ttm": 2.6, "ttm_lvl": 2.9}, {"q": "Q2'24", "beat": 79, "avg5": 77, "growth": 11.3, "read": ">99% reported · Sep 6, 2024", "src": "090624A", "flag": "", "ttm": 6.5, "ttm_lvl": 6.7}, {"q": "Q3'24", "beat": 75, "avg5": 77, "growth": 5.8, "read": "95% reported · Nov 22, 2024", "src": "112224", "flag": "", "ttm": 6.7, "ttm_lvl": 6.9}, {"q": "Q4'24", "beat": 75, "avg5": 77, "growth": 18.2, "read": "97% reported · Feb 28, 2025", "src": "022825", "flag": "", "ttm": 10.3, "ttm_lvl": 10.5}, {"q": "Q1'25", "beat": 78, "avg5": 77, "growth": 13.3, "read": "98% reported · May 30, 2025", "src": "053025", "flag": "", "ttm": 12.1, "ttm_lvl": 12.1}, {"q": "Q2'25", "beat": 81, "avg5": 78, "growth": 11.9, "read": "98% reported · Aug 29, 2025", "src": "082925", "flag": "", "ttm": 12.2, "ttm_lvl": 12.0}, {"q": "Q3'25", "beat": 83, "avg5": 78, "growth": 13.4, "read": "95% reported · Nov 21, 2025", "src": "112125", "flag": "", "ttm": 14.1, "ttm_lvl": 13.6}, {"q": "Q4'25", "beat": 73, "avg5": 78, "growth": 14.2, "read": "96% reported · Feb 27, 2026", "src": "022726", "flag": "", "ttm": 13.2, "ttm_lvl": 12.4}, {"q": "Q1'26", "beat": 85, "avg5": 78, "growth": 28.6, "read": "97% reported · May 29, 2026", "src": "052926A", "flag": "", "ttm": 17.1, "ttm_lvl": 16.0}, {"q": "Q2'26", "beat": 87, "avg5": 78, "growth": 52.0, "read": "99% reported · Sep 4, 2026", "src": "090426", "flag": "", "gnote": "Includes GAAP investment gains at Alphabet ($98bn) and Amazon ($53.4bn); 33.8% excluding the two", "last_pct": 99, "ttm": 27.3, "ttm_lvl": 25.9}, {"q": "Q3'26", "beat": 83, "avg5": 78, "growth": 29.5, "read": "24% reported · Oct 23, 2026", "src": "102326", "flag": "live", "last_pct": 24, "ttm": 31.2, "ttm_lvl": null}], "guidance": [{"q": "Q2'21", "pos": 66, "neg": 37, "pos5": 37, "src": "070221", "pct": 64}, {"q": "Q3'21", "pos": 56, "neg": 47, "pos5": 39, "src": "100121", "pct": 54}, {"q": "Q4'21", "pos": 37, "neg": 56, "pos5": 40, "src": "010722", "pct": 40}, {"q": "Q1'22", "pos": 29, "neg": 67, "pos5": 40, "src": "040822", "pct": 30}, {"q": "Q2'22", "pos": 31, "neg": 71, "pos5": 40, "src": "070822", "pct": 30}, {"q": "Q3'22", "pos": 41, "neg": 65, "pos5": null, "src": "100722", "pct": 39}, {"q": "Q4'22", "pos": 35, "neg": 65, "pos5": 41, "src": "010623A", "pct": 35}, {"q": "Q1'23", "pos": 28, "neg": 78, "pos5": 41, "src": "040623", "pct": 26}, {"q": "Q2'23", "pos": 46, "neg": 67, "pos5": 41, "src": "070723", "pct": 41}, {"q": "Q3'23", "pos": 42, "neg": 76, "pos5": 41, "src": "100623", "pct": 36}, {"q": "Q4'23", "pos": 39, "neg": 72, "pos5": 41, "src": "010524", "pct": 35}, {"q": "Q1'24", "pos": 33, "neg": 79, "pos5": 41, "src": "032824", "pct": 29}, {"q": "Q2'24", "pos": 44, "neg": 67, "pos5": 41, "src": "060724", "pct": 40}, {"q": "Q3'24", "pos": 50, "neg": 60, "pos5": 42, "src": "101124", "pct": 45}, {"q": "Q4'24", "pos": 35, "neg": 71, "pos5": 43, "src": "011025", "pct": 33}, {"q": "Q1'25", "pos": 39, "neg": 68, "pos5": 43, "src": "032825", "pct": 36}, {"q": "Q2'25", "pos": 51, "neg": 59, "pos5": 43, "src": "070325", "pct": 46}, {"q": "Q3'25", "pos": 56, "neg": 56, "pos5": 43, "src": "100325", "pct": 50}, {"q": "Q4'25", "pos": 50, "neg": 57, "pos5": 42, "src": "010926", "pct": 47}, {"q": "Q1'26", "pos": 59, "neg": 51, "pos5": 42, "src": "040226", "pct": 54}, {"q": "Q2'26", "pos": 62, "neg": 49, "pos5": 41, "src": "071026", "pct": 56}, {"q": "Q3'26", "pos5": 40, "pos": 72, "neg": 44, "src": "100926", "pct": 62}, {"q": "Q4'26", "pos5": 40, "pos": 10, "neg": 7, "src": "102326", "live": true, "pct": 59}], "weeks": [{"date": "Sep 30", "note": "", "reported": "0%", "eps": null, "rev": null, "surp": null, "gpos": null, "gneg": null, "growth": 29.2, "src": null}, {"date": "Oct 2", "note": "", "reported": "16 cos", "eps": 88, "rev": 75, "surp": null, "gpos": null, "gneg": null, "growth": 29.5, "src": "100226"}, {"date": "Oct 9", "note": "", "reported": "19 cos", "eps": 84, "rev": 74, "surp": null, "gpos": null, "gneg": null, "growth": 29.6, "src": "100926"}, {"date": "Oct 16", "note": "", "reported": "9%", "eps": 84, "rev": 67, "surp": 2.6, "gpos": 4, "gneg": 4, "growth": 29.0, "src": "101626"}, {"date": "Oct 23", "note": "", "reported": "24%", "eps": 83, "rev": 66, "surp": 2.1, "gpos": 10, "gneg": 7, "growth": 29.5, "src": "102326"}], "drift": [{"q": "Q3'25", "early": 87, "at": 29, "final": 83}, {"q": "Q4'25", "early": 75, "at": 13, "final": 73}, {"q": "Q1'26", "early": 84, "at": 28, "final": 85}, {"q": "Q2'26", "early": 88, "at": 10, "final": 87}], "stats": {"q4_avg": 72, "nonq4_avg": 79}, "fs": "https://advantage.factset.com/hubfs/Website/Resources%20Section/Research%20Desk/Earnings%20Insight/"};
+(function(){
+  const H = DATA.history, N = H.length;
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const rgba = (hex, a) => { const h = hex.replace('#',''); const v = h.length===3 ? h.split('').map(c=>c+c).join('') : h;
+    const n = parseInt(v,16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; };
+  const fmtPct = v => v==null ? '<span class="muted">—</span>' : v + '%';
+  const gapCls = g => g>0 ? 'pos' : (g<0 ? 'neg' : 'flat');
+  const sign = g => (g>0?'+':'') + g;
+
+  // tables
+  document.getElementById('weeks').innerHTML = DATA.weeks.map((w,i) => {
+    const last = i === DATA.weeks.length-1;
+    const g = (w.gpos==null) ? '<span class="muted">—</span>' : `<span class="pos">${w.gpos}</span> / <span class="neg">${w.gneg}</span>`;
+    const s = w.surp==null ? '<span class="muted">—</span>' : (w.surp>0?'+':'') + w.surp.toFixed(1) + '%';
+    const dt = w.src ? `<a href="${DATA.fs}EarningsInsight_${w.src}.pdf">${w.date}</a>` : w.date;
+    const gr = w.growth == null ? '<span class="muted">—</span>' : w.growth.toFixed(1) + '%' + (i===0 ? ' <span class="muted">est</span>' : '');
+    return `<tr${last?' class="now"':''}><td>${dt}</td><td>${w.reported}</td><td>${fmtPct(w.eps)}</td><td>${fmtPct(w.rev)}</td><td>${s}</td><td>${g}</td><td>${gr}</td></tr>`;
+  }).join('');
+  document.getElementById('drift').innerHTML = DATA.drift.slice(-4).map(d => {
+    const g = d.final - d.early;
+    return `<tr><td>${d.q}</td><td>${d.early}%</td><td>${d.at}%</td><td>${d.final}%</td><td class="${gapCls(g)}">${sign(g)} pts</td></tr>`;
+  }).join('');
+  const GQ = {}; DATA.guidance.forEach(g => GQ[g.q] = g);
+  const f1 = v => v == null ? '—' : (v>0?'+':'') + v.toFixed(1) + '%';
+  document.getElementById('ledger').innerHTML = H.slice().reverse().map(h => {
+    const g = h.beat - h.avg5;
+    const tag = h.flag==='live' ? '<span class="tag live">live</span>' : '';
+    const gq = GQ[h.q];
+    const gcell = gq ? `<a href="${DATA.fs}EarningsInsight_${gq.src}.pdf">${gq.pct}%</a> <span class="muted">${gq.pos}/${gq.pos+gq.neg}</span>` : '<span class="muted">—</span>';
+    const g5 = gq && gq.pos5 != null ? gq.pos5 + '%' : '<span class="muted">n/a</span>';
+    return `<tr${h.flag==='live'?' class="now"':''}><td class="q">${h.q}${tag}</td><td>${h.beat}%</td><td>${h.avg5}%</td><td class="${gapCls(g)}">${sign(g)}</td>` +
+      `<td class="${h.growth<0?'neg':''}">${f1(h.growth)}</td><td class="${h.ttm<0?'neg':''}">${f1(h.ttm)}</td><td>${gcell}</td><td>${g5}</td>` +
+      `<td class="txt"><a href="${DATA.fs}EarningsInsight_${h.src}.pdf">${h.read}</a></td></tr>`;
+  }).join('');
+
+  if (typeof Chart === 'undefined') {
+    document.querySelectorAll('.chartbox').forEach(el => el.innerHTML = '<p class="chartnote">The chart library did not load. All values are in the quarterly ledger below.</p>');
+    return;
+  }
+
+  const mono = '"IBM Plex Mono", ui-monospace, Menlo, monospace';
+  const charts = {};
+  let beatMode = 'all', growthRange = '22';
+  const palette = () => ({ ink:css('--ink'), ink2:css('--ink-2'), ink3:css('--ink-3'), rule:css('--rule'), card:css('--card'),
+      teal:css('--teal'), orange:css('--orange'), slate:css('--slate'), ochre:css('--ochre') });
+  const isQ4 = q => q.startsWith('Q4');
+
+  // Shared builder: a series against its 5-yr average, gap shaded, value labels on points.
+  function vsAvgChart(id, rows, opt){
+    const C = palette();
+    const n = rows.length;
+    const hollow = i => !!rows[i].hollow;
+    const dim = i => opt.dim ? opt.dim(i) : false;
+    const ptColor = i => { const r = rows[i]; if (r.avg == null) return C.slate; return r.v > r.avg ? C.teal : (r.v < r.avg ? C.orange : C.slate); };
+    const labels = {
+      id:'vlabels-'+id,
+      afterDatasetsDraw(c){
+        const pts = c.getDatasetMeta(0).data; const ctx = c.ctx;
+        const gap = pts.length>1 ? pts[1].x - pts[0].x : 99;
+        ctx.save(); ctx.textAlign = 'center';
+        pts.forEach((p,i) => {
+          if (gap < 24 && i % 2 === 1 && i !== n-1 && !(opt.keepLabel && opt.keepLabel(i))) return;
+          const r = rows[i]; const below = r.avg != null && r.v < r.avg;
+          ctx.font = `${i===n-1?'600':'500'} 10.5px ${mono}`;
+          ctx.fillStyle = dim(i) ? rgba(C.ink3, .45) : (hollow(i) ? C.ochre : C.ink2);
+          ctx.fillText(r.v, p.x, below ? p.y + 17 : p.y - 10);
+        });
+        if (opt.banner) { const a = c.chartArea; ctx.textAlign='left'; ctx.font = `500 11px ${mono}`; ctx.fillStyle = C.orange; ctx.fillText(opt.banner, a.left + 6, a.top + 14); }
+        ctx.restore();
+      }
+    };
+    const cfg = {
+      type:'line',
+      data:{ labels: rows.map(r => r.q), datasets:[
+        { label: opt.label, data: rows.map(r => r.v), borderColor:C.ink, borderWidth:2, tension:0, order:1,
+          fill:{ target:1, above:rgba(C.teal, opt.dim?.07:.16), below:rgba(C.orange, opt.dim?.08:.18) },
+          segment:{ borderDash: s => hollow(s.p1DataIndex) ? [4,4] : undefined,
+                    borderColor: s => (opt.dim && dim(s.p0DataIndex) && dim(s.p1DataIndex)) ? rgba(C.ink,.35) : C.ink },
+          pointRadius: ctx => (opt.dim && !dim(ctx.dataIndex)) ? 6.5 : 5, pointHoverRadius:7,
+          pointBorderWidth: ctx => hollow(ctx.dataIndex) ? 2.5 : 1.5,
+          pointBackgroundColor: ctx => { const i = ctx.dataIndex; if (hollow(i)) return C.card; const col = ptColor(i); return dim(i) ? rgba(col,.3) : col; },
+          pointBorderColor: ctx => { const i = ctx.dataIndex; if (hollow(i)) return C.ochre; return dim(i) ? rgba(C.card,.6) : C.card; } },
+        { label:'5-yr average', data: rows.map(r => r.avg), borderColor:C.ink3, borderWidth:1.6, borderDash:[5,4],
+          stepped:'middle', spanGaps:true, pointRadius:0, pointHoverRadius:0, fill:false, order:2 }
+      ]},
+      options:{
+        responsive:true, maintainAspectRatio:false, animation:false,
+        layout:{ padding:{ top:14, right:6 } }, interaction:{ mode:'index', intersect:false },
+        scales:{
+          y:{ min:opt.min, max:opt.max, ticks:{ stepSize:opt.step, callback:v => v + '%', font:{ size:11 } }, grid:{ color:C.rule, drawTicks:false }, border:{ display:false } },
+          x:{ grid:{ display:false }, border:{ color:C.rule },
+              ticks:{ autoSkip:true, maxRotation:0, autoSkipPadding:10, font:{ size:11 }, color: ctx => (opt.dim && !dim(ctx.index)) ? C.orange : C.ink3 } }
+        },
+        plugins:{ legend:{ display:false },
+          tooltip:{ backgroundColor:C.ink, titleColor:C.card, bodyColor:C.card, padding:10, cornerRadius:4,
+            titleFont:{ family:mono, weight:'600' }, bodyFont:{ family:mono }, displayColors:false,
+            callbacks:{ title: items => rows[items[0].dataIndex].q.replace("'", " 20"),
+              label: item => item.datasetIndex===0 ? `${opt.label}: ${item.raw}%` : `5-yr avg: ${item.raw == null ? 'not stated' : item.raw + '%'}`,
+              afterBody: items => opt.after ? opt.after(items[0].dataIndex) : [] } } }
+      },
+      plugins:[labels]
+    };
+    if (charts[id]) charts[id].destroy();
+    charts[id] = new Chart(document.getElementById(id), cfg);
+  }
+
+  function buildBeat(){
+    const rows = H.map(h => ({ q:h.q, v:h.beat, avg:h.avg5, hollow:h.flag==='live' }));
+    vsAvgChart('histChart', rows, {
+      label:'Beat EPS', min:60, max:90, step:5,
+      dim: beatMode==='q4' ? (i => !isQ4(H[i].q)) : null,
+      keepLabel: i => beatMode==='q4' && isQ4(H[i].q),
+      banner: beatMode==='q4' ? `Q4 avg since 2022: ${DATA.stats.q4_avg}%  ·  other quarters: ${DATA.stats.nonq4_avg}%` : null,
+      after: i => { const h = H[i]; return [`Gap: ${sign(h.beat - h.avg5)} pts`, h.read]; }
+    });
+  }
+
+  function buildGuide(){
+    const G = DATA.guidance;
+    const rows = G.map(g => ({ q:g.q, v:g.pct, avg:g.pos5, hollow:!!g.live }));
+    vsAvgChart('guideChart', rows, {
+      label:'Positive guidance', min:20, max:70, step:10,
+      after: i => { const g = G[i]; return [`${g.pos} positive, ${g.neg} negative`, (g.live ? 'Early count · ' : 'Pre-season count · ') + 'Earnings Insight ' + g.src]; }
+    });
+  }
+
+  function buildGrowth(){
+    const C = palette();
+    const start = growthRange === '22' ? H.findIndex(h => h.q === "Q1'22") : 0;
+    const rows = H.slice(start); const n = rows.length;
+    const live = i => rows[i].flag === 'live';
+    const barCol = i => live(i) ? rgba(C.ochre, .75) : (rows[i].growth < 0 ? C.orange : rgba(C.slate, .85));
+    const labels = {
+      id:'glabels',
+      afterDatasetsDraw(c){
+        const bars = c.getDatasetMeta(0).data; const line = c.getDatasetMeta(1).data; const ctx = c.ctx;
+        const gap = bars.length>1 ? bars[1].x - bars[0].x : 99;
+        ctx.save(); ctx.textAlign = 'center'; ctx.font = `500 10px ${mono}`;
+        bars.forEach((b,i) => {
+          if (gap < 26 && i % 2 === 1 && i !== n-1) return;
+          const v = rows[i].growth; const neg = v < 0;
+          const tY = line[i].y; let y = neg ? b.y + 13 : b.y - 6;
+          if (!neg && Math.abs(y - tY) < 11) y = Math.min(b.y, tY) - 12;
+          if (live(i) && !neg && (b.base - b.y) > 22) { ctx.fillStyle = C.card; ctx.fillText(v.toFixed(1), b.x, b.y + 14); return; }
+          ctx.fillStyle = live(i) ? C.ochre : (neg ? C.orange : C.ink2);
+          ctx.fillText(v.toFixed(1), b.x, y);
+        });
+        ctx.restore();
+      }
+    };
+    const cfg = {
+      data:{ labels: rows.map(r => r.q), datasets:[
+        { type:'bar', label:'Quarterly y/y', data: rows.map(r => r.growth), order:2,
+          backgroundColor: ctx => barCol(ctx.dataIndex), borderRadius:2, maxBarThickness:28, categoryPercentage:.72, barPercentage:.9 },
+        { type:'line', label:'TTM y/y', data: rows.map(r => r.ttm), order:1, borderColor:C.ink, borderWidth:2, tension:.25,
+          segment:{ borderDash: s => live(s.p1DataIndex) ? [4,4] : undefined },
+          pointRadius: ctx => live(ctx.dataIndex) ? 4.5 : 2.5, pointHoverRadius:5,
+          pointBackgroundColor: ctx => live(ctx.dataIndex) ? C.card : C.ink,
+          pointBorderColor: ctx => live(ctx.dataIndex) ? C.ochre : C.ink, pointBorderWidth: ctx => live(ctx.dataIndex) ? 2.5 : 1 }
+      ]},
+      options:{
+        responsive:true, maintainAspectRatio:false, animation:false,
+        layout:{ padding:{ top:16, right:6 } }, interaction:{ mode:'index', intersect:false },
+        scales:{
+          y:{ grace:'6%', ticks:{ callback:v => v + '%', font:{ size:11 }, maxTicksLimit:8 },
+              grid:{ color: ctx => ctx.tick.value === 0 ? C.ink3 : C.rule, drawTicks:false }, border:{ display:false } },
+          x:{ grid:{ display:false }, border:{ color:C.rule }, ticks:{ autoSkip:true, maxRotation:0, autoSkipPadding:10, font:{ size:11 }, color:C.ink3 } }
+        },
+        plugins:{ legend:{ display:false },
+          tooltip:{ backgroundColor:C.ink, titleColor:C.card, bodyColor:C.card, padding:10, cornerRadius:4,
+            titleFont:{ family:mono, weight:'600' }, bodyFont:{ family:mono }, displayColors:false,
+            callbacks:{ title: items => rows[items[0].dataIndex].q.replace("'", " 20"),
+              label: item => `${item.dataset.label}: ${f1(item.raw)}`,
+              afterBody: items => { const r = rows[items[0].dataIndex]; const out = [r.flag==='live' ? 'Blended, season in progress' : r.read]; if (r.gnote) out.push(r.gnote); return out; } } } }
+      },
+      plugins:[labels]
+    };
+    if (charts.growth) charts.growth.destroy();
+    charts.growth = new Chart(document.getElementById('growthChart'), cfg);
+  }
+
+  function buildAll(){
+    Chart.defaults.font.family = mono; Chart.defaults.color = css('--ink-3');
+    buildBeat(); buildGrowth(); buildGuide();
+  }
+  const press = (on, off) => { document.getElementById(on).setAttribute('aria-pressed','true'); document.getElementById(off).setAttribute('aria-pressed','false'); };
+  document.getElementById('hl-all').addEventListener('click', () => { beatMode='all'; press('hl-all','hl-q4'); buildBeat(); });
+  document.getElementById('hl-q4').addEventListener('click', () => { beatMode='q4'; press('hl-q4','hl-all'); buildBeat(); });
+  document.getElementById('gr-all').addEventListener('click', () => { growthRange='all'; press('gr-all','gr-22'); buildGrowth(); });
+  document.getElementById('gr-22').addEventListener('click', () => { growthRange='22'; press('gr-22','gr-all'); buildGrowth(); });
+
+  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(buildAll, buildAll);
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  if (mq.addEventListener) mq.addEventListener('change', buildAll);
+  new MutationObserver(buildAll).observe(document.documentElement, { attributes:true, attributeFilter:['data-theme'] });
+})();
+</script>
+
+</body>
+</html>
