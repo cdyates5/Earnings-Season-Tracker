@@ -9,53 +9,54 @@
    "100226",
    "100926",
    "101626",
-   "102326"
+   "102326",
+   "103026"
   ],
-  "last_edition_code": "102326",
-  "last_edition_date": "2026-10-23",
-  "updated_utc": "2026-10-27 03:26 UTC"
+  "last_edition_code": "103026",
+  "last_edition_date": "2026-10-30",
+  "updated_utc": "2026-10-31 01:38 UTC"
  },
  "current": {
   "quarter": "Q3 2026",
-  "edition": "Oct 23, 2026",
-  "edition_url": "https://advantage.factset.com/hubfs/Website/Resources%20Section/Research%20Desk/Earnings%20Insight/EarningsInsight_102326.pdf",
-  "pct_reported": 24,
+  "edition": "Oct 30, 2026",
+  "edition_url": "https://advantage.factset.com/hubfs/Website/Resources%20Section/Research%20Desk/Earnings%20Insight/EarningsInsight_103026.pdf",
+  "pct_reported": 60,
   "n_index": 500,
-  "eps_beat": 83,
+  "eps_beat": 82,
   "eps_inline": 4,
-  "eps_miss": 13,
+  "eps_miss": 14,
   "eps_beat_1y": 82,
   "eps_beat_5y": 78,
   "eps_beat_10y": 77,
-  "eps_surprise": 2.1,
+  "eps_surprise": 1.9,
   "eps_surprise_5y": 7.5,
   "eps_surprise_10y": 8.0,
-  "rev_beat": 66,
+  "rev_beat": 70,
   "rev_beat_5y": 70,
   "rev_beat_10y": 68,
-  "rev_surprise": 1.2,
+  "rev_surprise": 1.7,
   "rev_surprise_5y": 1.8,
-  "eps_growth": 29.5,
-  "rev_growth": 12.7,
-  "fy_pos": 175,
-  "fy_neg": 93,
-  "next_week": 179,
-  "next_week_dow": 10,
+  "eps_growth": 30.2,
+  "rev_growth": 13.4,
+  "fy_pos": 178,
+  "fy_neg": 92,
+  "next_week": 140,
+  "next_week_dow": 3,
   "fwd_pe": 18.7,
-  "eps_growth_qend": 29.2,
+  "eps_growth_qend": 29.1,
   "qend_label": "Sep 30",
-  "n_reported": 120,
+  "n_reported": 300,
   "sector_top": [
-   "Energy",
-   11.0
+   "Health Care",
+   13.2
   ],
   "next_week_q": 3,
   "g_next_q": "Q4 2026",
   "sector_bottom": [
    "Communication Services",
-   -19.7
+   -21.5
   ],
-  "edition_code": "102326"
+  "edition_code": "103026"
  },
  "season_weeks": [
   {
@@ -67,7 +68,7 @@
    "surp": null,
    "gpos": null,
    "gneg": null,
-   "growth": 29.2,
+   "growth": 29.1,
    "src": null
   },
   {
@@ -117,6 +118,18 @@
    "gneg": 7,
    "growth": 29.5,
    "src": "102326"
+  },
+  {
+   "date": "Oct 30",
+   "note": "",
+   "reported": "60%",
+   "eps": 82,
+   "rev": 70,
+   "surp": 1.9,
+   "gpos": 28,
+   "gneg": 19,
+   "growth": 30.2,
+   "src": "103026"
   }
  ],
  "history": [
@@ -313,13 +326,13 @@
   },
   {
    "q": "Q3'26",
-   "beat": 83,
+   "beat": 82,
    "avg5": 78,
-   "growth": 29.5,
-   "read": "24% reported · Oct 23, 2026",
-   "src": "102326",
+   "growth": 30.2,
+   "read": "60% reported · Oct 30, 2026",
+   "src": "103026",
    "flag": "live",
-   "last_pct": 24
+   "last_pct": 60
   }
  ],
  "pre_growth": {
@@ -524,9 +537,9 @@
   {
    "q": "Q4'26",
    "pos5": 40,
-   "pos": 10,
-   "neg": 7,
-   "src": "102326",
+   "pos": 28,
+   "neg": 19,
+   "src": "103026",
    "live": true
   }
  ],
@@ -592,6 +605,12 @@
    "date": "2026-10-23",
    "pct": 24,
    "beat": 83
+  },
+  {
+   "q": "Q3'26",
+   "date": "2026-10-30",
+   "pct": 60,
+   "beat": 82
   }
  ]
 }
